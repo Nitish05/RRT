@@ -4,8 +4,8 @@ import random
 import time
 
 # Canvas dimensions
-canvas_height = 200
-canvas_width = 600
+canvas_height = 400
+canvas_width = 1200
 
 # Define the colors
 clearance_color = (127, 127, 127)
