@@ -17,7 +17,7 @@ path_color = (0, 255, 0)
 clearance_distance = 5
 robo_radius = 22
 nodes = []
-
+obs =set()
 # Initialize a white canvas
 canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
 
@@ -58,6 +58,7 @@ for x in range(canvas_width):
             nodes.append((x, y))
         else:
             canvas[y, x] = obstacle_color
+            obs.add((x, y))
 
 
 def distance(point1, point2):
@@ -65,6 +66,27 @@ def distance(point1, point2):
 
 def nearest_nodes(tree, point, radius=20):
     return [node for node in tree if distance(node, point) < radius]
+
+def get_parent_nodes(tree, node, depth):
+    """
+    Get parent nodes of a given node up to a certain depth.
+    
+    Args:
+    tree (dict): The tree structure with nodes as keys and their parent as values.
+    node (tuple): The node for which parent nodes are being retrieved.
+    depth (int): The maximum depth to retrieve parents for, with 0 being the node itself.
+    
+    Returns:
+    list: A list of parent nodes up to the specified depth.
+    """
+    parents = []
+    current = node
+    while depth > 0 and tree.get(current) is not None:
+        parent = tree[current]
+        parents.append(parent)
+        current = parent
+        depth -= 1
+    return parents
 
 def cost(tree, node):
     if node not in tree:
@@ -108,6 +130,53 @@ def rewire(tree, new_node, near_nodes):
             cv2.line(canvas, new_node, node, path_color, 1)
     return tree
 
+
+def is_free_path(fr, to, obstacle_set):
+    """
+    Check if the path between two points is free of obstacles using Bresenham's Line Algorithm.
+    
+    :param x1, y1: int - Starting point coordinates
+    :param x2, y2: int - Ending point coordinates
+    :param obstacle_set: set - Set of obstacle points (x, y)
+    :return: bool - True if path is clear, False if obstructed
+    """
+    x1, y1 = fr
+    x2, y2 = to
+    dx = abs(x2 - x1)
+    dy = abs(y2 - y1)
+    sx = 1 if x1 < x2 else -1
+    sy = 1 if y1 < y2 else -1
+    err = dx + dy
+
+    while True:
+        if (x1, y1) in obstacle_set:
+            return False
+        if x1 == x2 and y1 == y2:
+            break
+        e2 = 2 * err
+        if e2 >= dy:
+            err += dy
+            x1 += sx
+        if e2 <= dx:
+            err += dx
+            y1 += sy
+
+    return True
+
+
+def Q_rewire(tree, new_node, near_nodes):
+    
+    for node in near_nodes:
+        for x_from in [new_node]+ get_parent_nodes(tree, new_node, 1):
+            sigma = extend(tree, x_from, node)
+            if cost(tree, x_from) + cost(tree, sigma) < cost(tree, node) and is_free_path(node, x_from, obs):
+                if is_free(*sigma) and is_free(*node) and is_free(*x_from):
+                    print(is_free_path(node, x_from, obs))
+                    tree[node] = x_from
+                    cv2.line(canvas, x_from, node, path_color, 1)
+    return tree
+
+
 def rewire_goal(tree, goal_node, near_nodes):
     for node in near_nodes:
         if is_free(*goal_node) and is_free(*node) and cost(tree, goal_node) + distance(goal_node, node) < cost(tree, node):
@@ -117,28 +186,35 @@ def rewire_goal(tree, goal_node, near_nodes):
 
 
 
-def RRT_star(start, goal, iterations=2000, search_radius=20):
+def RRT_star(start, goal, iterations=int(len(nodes)*0.05), search_radius=20):
     tree = {start: None}
     goal_node = None
     available_nodes = nodes.copy()
     for _ in range(iterations):
         # rand_point = random.choice(nodes) if random.randint(0, 100) > 5 else goal
         if random.randint(0, 100) > 5:
-                rand_point = (random.randint(0, canvas_width), random.randint(0, canvas_height))
-
-
+            if available_nodes:
+                rand_index = random.randint(0, len(available_nodes) - 1)
+                rand_point = available_nodes.pop(rand_index)
+                # rand_point = available_nodes[rand_index]
+            else:
+                break
+            
         else:
             rand_point = goal
         nearest = min(tree, key=lambda x: distance(x, rand_point))
         new_node = extend(tree, nearest, rand_point)
         if new_node:
             near_nodes = nearest_nodes(tree, new_node, search_radius)
+            # for node in near_nodes:
+            #     parent_nodes = get_parent_nodes(tree, node, 1)
+            #     near_nodes.extend(parent_nodes)
             tree = choose_parent(tree, new_node, near_nodes)
             tree = rewire(tree, new_node, near_nodes)
             if distance(new_node, goal) < 10:
                 if goal_node is None or cost(tree, new_node) < cost(tree, goal_node):
                     goal_node = new_node
-                tree = rewire_goal(tree, goal_node, near_nodes)
+                tree = rewire(tree, goal_node, near_nodes)
     return tree, goal_node
 
 def reconstruct_path(tree, start, goal_node):
@@ -149,7 +225,12 @@ def reconstruct_path(tree, start, goal_node):
         step = tree[step]
     path.append(start)
     path.reverse()
-    return path
+    path_in_meters = [((x -50) / 100, (y - 100) / 100) for x, y in path]
+    return path_in_meters
+
+
+
+
 
 def draw_path(path):
     for i in range(len(path) - 1):
@@ -163,7 +244,6 @@ tree, last_node = RRT_star(start, goal)
 if last_node:
     path = reconstruct_path(tree, start, last_node)
     print(path)
-    draw_path(path)
 end_time = time.time()
 print("Time taken: ", end_time - start_time)
 

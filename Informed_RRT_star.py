@@ -6,7 +6,7 @@ import random
 import math
 
 # Canvas dimensions
-canvas_height = 200
+canvas_height = 600
 canvas_width = 600
 
 # Define the colors
@@ -16,7 +16,7 @@ free_space_color = (255, 255, 255)
 threshold = 2
 path_color = (0, 255, 0)
 clearance_distance = 5
-robo_radius = 5
+robo_radius = 22
 nodes = []
 
 
@@ -167,6 +167,7 @@ def sample_points_in_ellipse(start, goal, num_points, C):
     return x_final, y_final
 
 
+
 def RRT_star(start, goal, iterations=int(len(nodes)*0.02), search_radius=20):
     GOAL_REACHED = False
     tree = {start: None}
@@ -225,8 +226,8 @@ def draw_path(path):
     for i in range(len(path) - 1):
         cv2.line(canvas, path[i], path[i + 1], (255, 0, 0), 2)  
 
-start = (50, 100)  # Input start as a tuple (X, Y)
-goal = (550, 100)  # Input goal as a tuple (X, Y)
+start = (250, 300)  # Input start as a tuple (X, Y)
+goal = (400, 300)  # Input goal as a tuple (X, Y)
 
 start_time = time.time()
 tree, last_node = RRT_star(start, goal)

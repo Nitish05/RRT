@@ -16,12 +16,12 @@ free_space_color = (255, 255, 255)
 threshold = 2
 path_color = (0, 255, 0)
 clearance_distance = 5
-robo_radius = 5
+robo_radius = 22
 nodes = []
-
+obs =set()
 
 # Initialize a white canvas
-# canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
+canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
 
 # Define obstacles using half plane model
 def obstacles(node):
@@ -52,8 +52,19 @@ def clearance(x, y, clearance):
     ]
     return any(clearance_zones)
 
+
 def is_free(x, y):
     return not (obstacles((x, y)) or clearance(x, y, clearance_distance))
+ 
+
+
+for i in range(canvas_width):
+    for j in range(canvas_height):
+        if is_free(i, j):
+            nodes.append((i, j))
+        else:
+            canvas[j, i] = obstacle_color
+            obs.add((i, j))
 
 
 def distance(point1, point2):
@@ -78,7 +89,7 @@ def extend(tree, nearest, new_point, step_size=10):
 
     if is_free(*new_node):  
         tree[new_node] = nearest
-        # cv2.line(canvas, tuple(map(int, nearest)), new_node, path_color, 1)  
+        cv2.line(canvas, tuple(map(int, nearest)), new_node, path_color, 1)  
         return new_node
     return None
 
@@ -113,9 +124,9 @@ def reconstruct_path(tree, start, goal_node):
     return path
 
 
-# def draw_path(path):
-#     for i in range(len(path) - 1):
-        # cv2.line(canvas, path[i], path[i + 1], (255, 0, 0), 2)  
+def draw_path(path, color=(255, 0, 0)):
+    for i in range(len(path) - 1):
+        cv2.line(canvas, path[i], path[i + 1], color, 2)  
 
 
 start = (50, 100)
@@ -140,14 +151,18 @@ for x in range(canvas_width):
 
 tree, last_node = RRT(start, goal)
 if last_node:
+    # path = reconstruct_path(tree, start, last_node)
     path = reconstruct_path(tree, start, last_node)
     print(path)
-    # draw_path(path)
+    print("Path found")
+
+    draw_path(path)
+
 
 end_time = time.time()
 print("Time taken: ", end_time - start_time)
 
 
-# cv2.imshow("Path Planning with RRT", canvas)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
+cv2.imshow("Path Planning with RRT", canvas)
+cv2.waitKey(0)
+cv2.destroyAllWindows()

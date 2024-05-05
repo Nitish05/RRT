@@ -17,6 +17,7 @@ path_color = (0, 255, 0)
 clearance_distance = 5
 robo_radius = 22
 nodes = []
+obst = set()
 
 # Initialize a white canvas
 canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
@@ -58,12 +59,13 @@ for x in range(canvas_width):
             nodes.append((x, y))
         else:
             canvas[y, x] = obstacle_color
+            obst.add((x, y))
 
 
 def distance(point1, point2):
     return np.linalg.norm(np.array(point1) - np.array(point2))
 
-def nearest_nodes(tree, point, radius=20):
+def nearest_nodes(tree, point, radius=10):
     return [node for node in tree if distance(node, point) < radius]
 
 def cost(tree, node):
@@ -87,6 +89,43 @@ def extend(tree, nearest, new_point, step_size=10):
     new_node = tuple(map(int, new_node))
     return new_node
 
+
+def is_free_path(fr, to, obstacle_set):
+    x1, y1 = fr
+    x2, y2 = to
+    dx = abs(x2 - x1)
+    dy = abs(y2 - y1)
+    sx = 1 if x1 < x2 else -1
+    sy = 1 if y1 < y2 else -1
+    err = dx + dy
+
+    while True:
+        if (x1, y1) in obstacle_set:
+            return False
+        if x1 == x2 and y1 == y2:
+            break
+        e2 = 2 * err
+        if e2 >= dy:
+            err += dy
+            x1 += sx
+        if e2 <= dx:
+            err += dx
+            y1 += sy
+
+    return True
+
+
+def get_parent_nodes(tree, node, depth):
+    parents = []
+    current = node
+    while depth > 0 and tree.get(current) is not None:
+        parent = tree[current]
+        parents.append(parent)
+        current = parent
+        depth -= 1
+    return parents[::-1]  
+
+
 def choose_parent(tree, new_node, near_nodes):
     best_parent = None
     best_cost = float('inf')
@@ -94,25 +133,37 @@ def choose_parent(tree, new_node, near_nodes):
         if is_free(*new_node) and is_free(*node) and cost(tree, node) + distance(node, new_node) < best_cost:
             best_parent = node
             best_cost = cost(tree, node) + distance(node, new_node)
-    if best_parent:
+    if best_parent and is_free_path(best_parent, new_node, obst):
+        tree[new_node] = best_parent
+        cv2.line(canvas, best_parent, new_node, path_color, 1)
+    elif best_parent:
         tree[new_node] = best_parent
         cv2.line(canvas, best_parent, new_node, path_color, 1)
     return tree
 
 
 
-def rewire(tree, new_node, near_nodes):
-    for node in near_nodes:
-        if is_free(*new_node) and is_free(*node) and cost(tree, new_node) + distance(new_node, node) < cost(tree, node):
-            tree[node] = new_node
-            cv2.line(canvas, new_node, node, path_color, 1)
-    return tree
+# def rewire(tree, new_node, near_nodes):
+#     for node in near_nodes:
+#         if is_free(*new_node) and is_free(*node) and cost(tree, new_node) + distance(new_node, node) < cost(tree, node):
+#             tree[node] = new_node
+#             cv2.line(canvas, new_node, node, path_color, 1)
+#     return tree
 
-def rewire_goal(tree, goal_node, near_nodes):
-    for node in near_nodes:
-        if is_free(*goal_node) and is_free(*node) and cost(tree, goal_node) + distance(goal_node, node) < cost(tree, node):
-            tree[node] = goal_node
-            cv2.line(canvas, goal_node, node, path_color, 1)
+# def rewire_goal(tree, goal_node, near_nodes):
+#     for node in near_nodes:
+#         if is_free(*goal_node) and is_free(*node) and cost(tree, goal_node) + distance(goal_node, node) < cost(tree, node):
+#             tree[node] = goal_node
+#             cv2.line(canvas, goal_node, node, path_color, 1)
+#     return tree
+
+def q_rewire(tree, new_node, near_nodes_with_ancestry):
+    for node in near_nodes_with_ancestry:
+        for  x_from in [new_node] + get_parent_nodes(tree, new_node, 2):
+            sigma = extend(tree, x_from, node)
+            if sigma and is_free(*sigma) and cost(tree, x_from) + distance(x_from, sigma) < cost(tree, node) and is_free_path(x_from, sigma, obst):
+                tree[node] = x_from
+                cv2.line(canvas, x_from, node, path_color, 1)
     return tree
 
 
@@ -124,21 +175,32 @@ def RRT_star(start, goal, iterations=2000, search_radius=20):
     for _ in range(iterations):
         # rand_point = random.choice(nodes) if random.randint(0, 100) > 5 else goal
         if random.randint(0, 100) > 5:
-                rand_point = (random.randint(0, canvas_width), random.randint(0, canvas_height))
+                # rand_point = (random.randint(0, canvas_width), random.randint(0, canvas_height))
+                rand_point = random.choice(available_nodes)
 
-
+            # if available_nodes:
+            #     # rand_point = random.randint(0, len(available_nodes) - 1)
+            #     # rand_point = available_nodes.pop(rand_point)
+            # else:
+            #     break
+            
         else:
             rand_point = goal
         nearest = min(tree, key=lambda x: distance(x, rand_point))
         new_node = extend(tree, nearest, rand_point)
         if new_node:
             near_nodes = nearest_nodes(tree, new_node, search_radius)
+            for n in near_nodes:
+                ancestry = get_parent_nodes(tree, n, 2)
+                # print(f"Ancestry for {n}: {ancestry}")
+                near_nodes_with_ancestry = near_nodes + ancestry
+                # near_nodes.extend(ancestry)
             tree = choose_parent(tree, new_node, near_nodes)
-            tree = rewire(tree, new_node, near_nodes)
+            tree = q_rewire(tree, new_node, near_nodes_with_ancestry)
             if distance(new_node, goal) < 10:
                 if goal_node is None or cost(tree, new_node) < cost(tree, goal_node):
                     goal_node = new_node
-                tree = rewire_goal(tree, goal_node, near_nodes)
+                tree = q_rewire(tree, goal_node, near_nodes)
     return tree, goal_node
 
 def reconstruct_path(tree, start, goal_node):
@@ -167,6 +229,6 @@ if last_node:
 end_time = time.time()
 print("Time taken: ", end_time - start_time)
 
-cv2.imshow("Path Planning with RRT*", canvas)
+cv2.imshow("Path Planning with Quick-RRT*", canvas)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
