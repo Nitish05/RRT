@@ -5,8 +5,8 @@ import time
 import random
 
 # Canvas dimensions
-canvas_height = 200
-canvas_width = 600
+canvas_height = 500
+canvas_width = 500
 
 # Define the colors
 clearance_color = (127, 127, 127)
@@ -26,31 +26,20 @@ def obstacles(node):
     x, y = node
     Circ_center = (420, 120)
     R = 60
-    Xc, Yc = Circ_center
-    # y = abs(y - canvas_height)
+    # Xc, Yc = Circ_center
+    y_transform = abs(y - canvas_height)
     obstacles = [
-        (x >= 150 and x <= 175 and y <= 200 and y >= 100), 
-        (x >= 250 and x <= 275 and y <= 100 and y >= 0),
-        (((x - Xc)**2 + (y - Yc)**2) <= R**2),        
+        (x >= 115 and x <= 135  and y_transform >= 125 and y_transform <= 375), 
+        (x >= 135 and x <= 260 and y_transform >= 240 and y_transform <= 260 ),
+        (x >= 240 and x <= 260 and y_transform >= 0 and y_transform <= 240),
+        (x >= 240 and x <= 365  and y_transform >= 355 and y_transform <= 375),
+        (x >= 365 and x <= 385 and y_transform >= 125 and y_transform <= 500 ),
+
     ]
     return any(obstacles)
 
-def clearance(x, y, clearance):
-    clearance += robo_radius
-    Circ_center = (420, 120)
-    R = 60 + clearance
-    Xc, Yc = Circ_center
-    # y = abs(y - canvas_height)
-    clearance_zones = [
-        (x >= 150 - clearance and x <= 175 + clearance and y <= 200 + clearance  and y >= 100 - clearance),
-        (x >= 250 - clearance and x <= 275 + clearance and y <= 100 + clearance and y >= 0 - clearance),
-        (((x - Xc)**2 + (y - Yc)**2) <= R**2),
-        (x <= clearance or x >= canvas_width - clearance or y <= clearance or y >= canvas_height - clearance),
-    ]
-    return any(clearance_zones)
-
 def is_free(x, y):
-    return not (obstacles((x, y)) or clearance(x, y, clearance_distance))
+    return not obstacles((x, y))
 
 for x in range(canvas_width):
     for y in range(canvas_height):
@@ -76,7 +65,7 @@ def cost(tree, node):
         step = tree[step]
     return total_cost
 
-def extend(tree, nearest, new_point, step_size=10):
+def extend(tree, nearest, new_point, step_size=15):
     direction = np.array(new_point) - np.array(nearest)
     length = np.linalg.norm(direction)
     if length == 0:
@@ -103,21 +92,45 @@ def choose_parent(tree, new_node, near_nodes):
 
 def rewire(tree, new_node, near_nodes):
     for node in near_nodes:
-        if is_free(*new_node) and is_free(*node) and cost(tree, new_node) + distance(new_node, node) < cost(tree, node):
+        if is_free(*new_node) and is_free(*node) and is_free_path(node, new_node) and cost(tree, new_node) + distance(new_node, node) < cost(tree, node):
             tree[node] = new_node
             cv2.line(canvas, new_node, node, path_color, 1)
     return tree
 
 def rewire_goal(tree, goal_node, near_nodes):
     for node in near_nodes:
-        if is_free(*goal_node) and is_free(*node) and cost(tree, goal_node) + distance(goal_node, node) < cost(tree, node):
+        if is_free(*goal_node) and is_free(*node) and is_free_path(node, goal_node) and cost(tree, goal_node) + distance(goal_node, node) < cost(tree, node):
             tree[node] = goal_node
             cv2.line(canvas, goal_node, node, path_color, 1)
     return tree
 
+def is_free_path(fr, to):
+    x1, y1 = fr
+    x2, y2 = to
+    dx, dy = abs(x2 - x1), abs(y2 - y1)
+    sx = 1 if x1 < x2 else -1
+    sy = 1 if y1 < y2 else -1
+    err = dx - dy
+
+    while True:
+        if not is_free(x1, y1):
+            return False
+        if x1 == x2 and y1 == y2:
+            break
+        
+        e2 =  2*err
+        if e2 > -dy:
+            err -= dy
+            x1 += sx
+        if e2 < dx: 
+            err += dx
+            y1 += sy
+
+    return True
 
 
-def RRT_star(start, goal, iterations=2000, search_radius=20):
+
+def RRT_star(start, goal, iterations=3000, search_radius=20):
     tree = {start: None}
     goal_node = None
     available_nodes = nodes.copy()
@@ -155,14 +168,15 @@ def draw_path(path):
     for i in range(len(path) - 1):
         cv2.line(canvas, path[i], path[i + 1], (255, 0, 0), 2)  
 
-start = (50, 100)  # Input start as a tuple (X, Y)
-goal = (550, 100)  # Input goal as a tuple (X, Y)
+start = (50, 400)  
+goal = (450, 100)  
 
 start_time = time.time()
 tree, last_node = RRT_star(start, goal)
 if last_node:
     path = reconstruct_path(tree, start, last_node)
-    print(path)
+    path_cost = cost(tree, last_node)
+    print("Path cost: ", path_cost)
     draw_path(path)
 end_time = time.time()
 print("Time taken: ", end_time - start_time)

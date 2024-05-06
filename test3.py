@@ -12,8 +12,8 @@ import time
 import random
 
 # Canvas dimensions
-canvas_height = 200
-canvas_width = 600
+canvas_height = 500
+canvas_width = 500
 
 # Define the colors
 clearance_color = (127, 127, 127)
@@ -30,18 +30,35 @@ obs =set()
 canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
 
 # Define obstacles using half plane model
+# def obstacles(node):
+#     x, y = node
+#     Circ_center = (420, 120)
+#     R = 60
+#     Xc, Yc = Circ_center
+#     # y = abs(y - canvas_height)
+#     obstacles = [
+#         (x >= 150 and x <= 175 and y <= 200 and y >= 100), 
+#         (x >= 250 and x <= 275 and y <= 100 and y >= 0),
+#         (((x - Xc)**2 + (y - Yc)**2) <= R**2),        
+#     ]
+#     return any(obstacles)
+
 def obstacles(node):
     x, y = node
     Circ_center = (420, 120)
     R = 60
-    Xc, Yc = Circ_center
-    # y = abs(y - canvas_height)
+    # Xc, Yc = Circ_center
+    y_transform = abs(y - canvas_height)
     obstacles = [
-        (x >= 150 and x <= 175 and y <= 200 and y >= 100), 
-        (x >= 250 and x <= 275 and y <= 100 and y >= 0),
-        (((x - Xc)**2 + (y - Yc)**2) <= R**2),        
+        (x >= 115 and x <= 135  and y_transform >= 125 and y_transform <= 375), 
+        (x >= 135 and x <= 260 and y_transform >= 240 and y_transform <= 260 ),
+        (x >= 240 and x <= 260 and y_transform >= 0 and y_transform <= 240),
+        (x >= 240 and x <= 365  and y_transform >= 355 and y_transform <= 375),
+        (x >= 365 and x <= 385 and y_transform >= 125 and y_transform <= 500 ),
+
     ]
     return any(obstacles)
+
 
 # Function to check if the node is within the clearance zone
 def clearance(x, y, clearance):
@@ -60,7 +77,8 @@ def clearance(x, y, clearance):
 
 
 def is_free(x, y):
-    return not (obstacles((x, y)) or clearance(x, y, clearance_distance))
+    # return not (obstacles((x, y)) or clearance(x, y, clearance_distance))
+    return not obstacles((x, y))
  
 
 
@@ -99,7 +117,7 @@ def extend(tree, nearest, new_point, step_size=10):
         return new_node
     return None
 
-def RRT(start, goal, iterations=5000):
+def RRT(start, goal, iterations=1000):
     tree = {start: None}
     available_nodes = nodes.copy()
     for _ in range(iterations):
@@ -195,8 +213,8 @@ def draw_path(path, color=(255, 0, 0)):
         cv2.line(canvas, path[i], path[i + 1], color, 2)  
 
 
-start = (50, 100)
-goal = (550, 100)
+start = (50, 250)
+goal = (450, 250)
 # Xi = input("Enter start point(X): ")
 # Yi = input("Enter start point(Y): ")
 # Xf = input("Enter goal point(X): ")

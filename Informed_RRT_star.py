@@ -6,8 +6,8 @@ import random
 import math
 
 # Canvas dimensions
-canvas_height = 600
-canvas_width = 600
+canvas_height = 500
+canvas_width = 500
 
 # Define the colors
 clearance_color = (127, 127, 127)
@@ -24,36 +24,25 @@ nodes = []
 # Initialize a white canvas
 canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
 
-# Define obstacles using half plane model
 def obstacles(node):
     x, y = node
     Circ_center = (420, 120)
     R = 60
-    Xc, Yc = Circ_center
-    # y = abs(y - canvas_height)
+    # Xc, Yc = Circ_center
+    y_transform = abs(y - canvas_height)
     obstacles = [
-        (x >= 150 and x <= 175 and y <= 200 and y >= 100), 
-        (x >= 250 and x <= 275 and y <= 100 and y >= 0),
-        (((x - Xc)**2 + (y - Yc)**2) <= R**2),        
+        (x >= 115 and x <= 135  and y_transform >= 125 and y_transform <= 375), 
+        (x >= 135 and x <= 260 and y_transform >= 240 and y_transform <= 260 ),
+        (x >= 240 and x <= 260 and y_transform >= 0 and y_transform <= 240),
+        (x >= 240 and x <= 365  and y_transform >= 355 and y_transform <= 375),
+        (x >= 365 and x <= 385 and y_transform >= 125 and y_transform <= 500 ),
+
     ]
     return any(obstacles)
 
-def clearance(x, y, clearance):
-    clearance += robo_radius
-    Circ_center = (420, 120)
-    R = 60 + clearance
-    Xc, Yc = Circ_center
-    # y = abs(y - canvas_height)
-    clearance_zones = [
-        (x >= 150 - clearance and x <= 175 + clearance and y <= 200 + clearance  and y >= 100 - clearance),
-        (x >= 250 - clearance and x <= 275 + clearance and y <= 100 + clearance and y >= 0 - clearance),
-        (((x - Xc)**2 + (y - Yc)**2) <= R**2),
-        (x <= clearance or x >= canvas_width - clearance or y <= clearance or y >= canvas_height - clearance),
-    ]
-    return any(clearance_zones)
 
 def is_free(x, y):
-    return not (obstacles((x, y)) or clearance(x, y, clearance_distance))
+    return not obstacles((x, y)) 
     # return True
 
 for x in range(canvas_width):
@@ -81,7 +70,7 @@ def cost(tree, node):
         step = tree[step]
     return total_cost
 
-def extend(tree, nearest, new_point, step_size=10):
+def extend(tree, nearest, new_point, step_size=15):
     direction = np.array(new_point) - np.array(nearest)
     length = np.linalg.norm(direction)
     if length == 0:
@@ -92,11 +81,36 @@ def extend(tree, nearest, new_point, step_size=10):
     new_node = tuple(map(int, new_node))
     return new_node
 
+def is_free_path(fr, to):
+    x1, y1 = fr
+    x2, y2 = to
+    dx, dy = abs(x2 - x1), abs(y2 - y1)
+    sx = 1 if x1 < x2 else -1
+    sy = 1 if y1 < y2 else -1
+    err = dx - dy
+
+    while True:
+        if not is_free(x1, y1):
+            return False
+        if x1 == x2 and y1 == y2:
+            break
+        
+        e2 =  2*err
+        if e2 > -dy:
+            err -= dy
+            x1 += sx
+        if e2 < dx: 
+            err += dx
+            y1 += sy
+
+    return True
+
+
 def choose_parent(tree, new_node, near_nodes):
     best_parent = None
     best_cost = float('inf')
     for node in near_nodes:
-        if is_free(*new_node) and is_free(*node) and cost(tree, node) + distance(node, new_node) < best_cost:
+        if is_free(*new_node) and is_free(*node) and is_free_path(node, new_node) and cost(tree, node) + distance(node, new_node) < best_cost:
             best_parent = node
             best_cost = cost(tree, node) + distance(node, new_node)
     if best_parent:
@@ -108,45 +122,27 @@ def choose_parent(tree, new_node, near_nodes):
 
 def rewire(tree, new_node, near_nodes):
     for node in near_nodes:
-        if is_free(*new_node) and is_free(*node) and cost(tree, new_node) + distance(new_node, node) < cost(tree, node):
+        if is_free(*new_node) and is_free_path(node, new_node) and is_free(*node) and cost(tree, new_node) + distance(new_node, node) < cost(tree, node):
             tree[node] = new_node
             cv2.line(canvas, new_node, node, path_color, 1)
     return tree
 
 def rewire_goal(tree, goal_node, near_nodes):
     for node in near_nodes:
-        if is_free(*goal_node) and is_free(*node) and cost(tree, goal_node) + distance(goal_node, node) < cost(tree, node):
+        if is_free(*goal_node) and is_free(*node) and is_free_path(node, goal_node) and cost(tree, goal_node) + distance(goal_node, node) < cost(tree, node):
             tree[node] = goal_node
             cv2.line(canvas, goal_node, node, path_color, 1)
     return tree
 
 
-# def sample_point_in_ellipse(start, goal, C):
-#     # print(C)
-#     # print(distance(start, goal))
-#     a = distance(start, goal) / 2  # Major axis half-length
-    
-#     b = math.sqrt(C**2 - distance(start, goal)**2)/2   # Minor axis half-length
-#     center = ((start[0] + goal[0]) / 2, (start[1] + goal[1]) / 2)
-#     # print(center)
-#     theta = math.atan2(goal[1] - start[1], goal[0] - start[0])  # Correct orientation
-#     # theta = 0
-#     # print(theta)
 
-#     angle = random.uniform(0, 2 * math.pi)
-#     r = a * b / math.sqrt((b * math.cos(angle))**2 + (a * math.sin(angle))**2)
-#     x = center[0] + r * math.cos(angle + theta)
-#     y = center[1] + r * math.sin(angle + theta)
-
-    # return (int(x), int(y))
 
 def sample_points_in_ellipse(start, goal, num_points, C):
-    a = distance(start, goal) / 2  # Major axis half-length
-    # print(distance(start, goal))
+    a = distance(start, goal) / 2
     b = math.sqrt(C**2 - distance(start, goal)**2)/2   # Minor axis half-length
     center = ((start[0] + goal[0]) / 2, (start[1] + goal[1]) / 2)
     # print(center)
-    theta = math.atan2(goal[1] - start[1], goal[0] - start[0])  # C
+    theta = math.atan2(goal[1] - start[1], goal[0] - start[0])
     # Generate random angles
     angles = np.random.uniform(0, 2 * np.pi, num_points)
     # Generate random radii
@@ -168,23 +164,19 @@ def sample_points_in_ellipse(start, goal, num_points, C):
 
 
 
-def RRT_star(start, goal, iterations=int(len(nodes)*0.02), search_radius=20):
+def Informed_RRT_star(start, goal, iterations=3000, search_radius=20):
     GOAL_REACHED = False
     tree = {start: None}
     goal_node = None
     available_nodes = nodes.copy()
     for _ in range(iterations):
-        # rand_point = random.choice(nodes) if random.randint(0, 100) > 5 else goal
         if GOAL_REACHED:
-            # print("Goal Reached")
-            # rand_point = sample_points_in_ellipse(start, goal_node, num_points=1000, C= cost_n)
             x_final, y_final = sample_points_in_ellipse(start, goal_node, num_points=1000, C= cost_n)
             valid_points = [(x, y) for x, y in zip(x_final, y_final) if is_free(x, y)]
             if valid_points:
                 rand_point = random.choice(valid_points)
             else:
                 continue
-            # print(rand_point)
 
         if random.randint(0, 100) > 5:
             if available_nodes:
@@ -207,9 +199,6 @@ def RRT_star(start, goal, iterations=int(len(nodes)*0.02), search_radius=20):
                     goal_node = new_node
                 tree = rewire_goal(tree, goal_node, near_nodes)
                 cost_n = cost(tree, new_node)
-                # print(cost_n)
-
-
     return tree, goal_node
 
 def reconstruct_path(tree, start, goal_node):
@@ -226,18 +215,20 @@ def draw_path(path):
     for i in range(len(path) - 1):
         cv2.line(canvas, path[i], path[i + 1], (255, 0, 0), 2)  
 
-start = (250, 300)  # Input start as a tuple (X, Y)
-goal = (400, 300)  # Input goal as a tuple (X, Y)
+start = (50, 400)  # Input start as a tuple (X, Y)
+goal = (450, 100)  # Input goal as a tuple (X, Y)
 
 start_time = time.time()
-tree, last_node = RRT_star(start, goal)
+tree, last_node = Informed_RRT_star(start, goal)
 if last_node:
     path = reconstruct_path(tree, start, last_node)
-    print(path)
+    # print(path)
     draw_path(path)
+    path_cost = cost(tree, last_node)
+    print("Path Cost: ", path_cost)
 end_time = time.time()
 print("Time taken: ", end_time - start_time)
 
-cv2.imshow("Path Planning with RRT*", canvas)
+cv2.imshow("Path Planning with Informed RRT*", canvas)
 cv2.waitKey(0)
 cv2.destroyAllWindows()

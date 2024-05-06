@@ -6,8 +6,8 @@ import time
 import random
 
 # Canvas dimensions
-canvas_height = 200
-canvas_width = 600
+canvas_height = 500
+canvas_width = 500
 
 # Define the colors
 clearance_color = (127, 127, 127)
@@ -28,33 +28,22 @@ def obstacles(node):
     x, y = node
     Circ_center = (420, 120)
     R = 60
-    Xc, Yc = Circ_center
-    # y = abs(y - canvas_height)
+    # Xc, Yc = Circ_center
+    y_transform = abs(y - canvas_height)
     obstacles = [
-        (x >= 150 and x <= 175 and y <= 200 and y >= 100), 
-        (x >= 250 and x <= 275 and y <= 100 and y >= 0),
-        (((x - Xc)**2 + (y - Yc)**2) <= R**2),        
+        (x >= 115 and x <= 135  and y_transform >= 125 and y_transform <= 375), 
+        (x >= 135 and x <= 260 and y_transform >= 240 and y_transform <= 260 ),
+        (x >= 240 and x <= 260 and y_transform >= 0 and y_transform <= 240),
+        (x >= 240 and x <= 365  and y_transform >= 355 and y_transform <= 375),
+        (x >= 365 and x <= 385 and y_transform >= 125 and y_transform <= 500 ),
+
     ]
     return any(obstacles)
 
-# Function to check if the node is within the clearance zone
-def clearance(x, y, clearance):
-    clearance = clearance + robo_radius
-    Circ_center = (420, 120)
-    R = 60 + clearance
-    Xc, Yc = Circ_center
-    # y = abs(y - canvas_height)
-    clearance_zones = [
-        (x >= 150 - clearance and x <= 175 + clearance and y <= 200 + clearance  and y >= 100 - clearance),
-        (x >= 250 - clearance and x <= 275 + clearance and y <= 100 + clearance and y >= 0 - clearance),
-        (((x - Xc)**2 + (y - Yc)**2) <= R**2),
-        (x <= clearance or x >= canvas_width - clearance or y <= clearance or y >= canvas_height - clearance),
-    ]
-    return any(clearance_zones)
 
 
 def is_free(x, y):
-    return not (obstacles((x, y)) or clearance(x, y, clearance_distance))
+    return not obstacles((x, y)) 
  
 
 
@@ -123,40 +112,41 @@ def reconstruct_path(tree, start, goal_node):
     path.reverse()
     return path
 
+def calculate_path_cost(path):
+    total_cost = 0
+    for i in range(len(path) - 1):
+        total_cost += distance(path[i], path[i + 1])
+    return total_cost
+
 
 def draw_path(path, color=(255, 0, 0)):
     for i in range(len(path) - 1):
         cv2.line(canvas, path[i], path[i + 1], color, 2)  
 
 
-start = (50, 100)
-goal = (550, 100)
-# Xi = input("Enter start point(X): ")
-# Yi = input("Enter start point(Y): ")
-# Xf = input("Enter goal point(X): ")
-# Yf = input("Enter goal point(Y): ")
-# start = (int(Xi), abs(canvas_height - int(Yi)))
-# goal = (int(Xf), abs(canvas_height - int(Yf)))
+start = (50, 400)
+goal = (450, 100)
+
 
 start_time = time.time()
-# cv2.circle(canvas, start, 5, (0, 0, 255), -1)
-# cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
+cv2.circle(canvas, start, 5, (0, 0, 255), -1)
+cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
 
 for x in range(canvas_width):
     for y in range(canvas_height):
         if is_free(x, y):
             nodes.append((x, y))
-        # else:
-        #     canvas[y, x] = obstacle_color
+        else:
+            canvas[y, x] = obstacle_color
 
 tree, last_node = RRT(start, goal)
 if last_node:
     # path = reconstruct_path(tree, start, last_node)
     path = reconstruct_path(tree, start, last_node)
-    print(path)
-    print("Path found")
-
     draw_path(path)
+    path_cost = calculate_path_cost(path)
+    print("Path cost: ", path_cost)
+   
 
 
 end_time = time.time()
