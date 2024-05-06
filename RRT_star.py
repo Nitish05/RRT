@@ -80,7 +80,7 @@ def choose_parent(tree, new_node, near_nodes):
     best_parent = None
     best_cost = float('inf')
     for node in near_nodes:
-        if is_free(*new_node) and is_free(*node) and cost(tree, node) + distance(node, new_node) < best_cost:
+        if is_free(*new_node) and is_free(*node) and is_free_path(node, new_node) and cost(tree, node) + distance(node, new_node) < best_cost:
             best_parent = node
             best_cost = cost(tree, node) + distance(node, new_node)
     if best_parent:
