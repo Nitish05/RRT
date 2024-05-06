@@ -17,6 +17,10 @@ path_color = (0, 255, 0)
 clearance_distance = 5
 robo_radius = 22
 nodes = []
+Ancestory_Depth = 4
+search_radius = 20
+step_size = 15
+
 
 # Initialize a white canvas
 canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
@@ -154,17 +158,12 @@ def choose_parent(tree, new_node, near_nodes):
 
 def q_rewire(tree, new_node, near_nodes_with_ancestry):
     for node in near_nodes_with_ancestry:
-        for  x_from in [new_node] + get_parent_nodes(tree, new_node, 4):
+        for  x_from in [new_node] + get_parent_nodes(tree, new_node, Ancestory_Depth):
             sigma = extend(tree, x_from, node)
             if sigma and is_free(*sigma) and is_free_path(x_from, node) and cost(tree, x_from) + distance(x_from, sigma) < cost(tree, node) :
                 tree[node] = x_from
                 cv2.line(canvas, x_from, node, path_color, 1)
     return tree
-
-
-
-
-
 
 
 def Quick_RRT_star(start, goal, iterations=3000, search_radius=20):
@@ -187,7 +186,7 @@ def Quick_RRT_star(start, goal, iterations=3000, search_radius=20):
         if new_node:
             near_nodes = nearest_nodes(tree, new_node, search_radius)
             for n in near_nodes:
-                ancestry = get_parent_nodes(tree, n, 4)
+                ancestry = get_parent_nodes(tree, n, Ancestory_Depth)
                 # print(f"Ancestry for {n}: {ancestry}")
                 near_nodes_with_ancestry = near_nodes + ancestry
                 # near_nodes.extend(ancestry)
@@ -217,7 +216,7 @@ start = (50, 400)  # Input start as a tuple (X, Y)
 goal = (450, 100)  # Input goal as a tuple (X, Y)
 
 start_time = time.time()
-tree, last_node = Quick_RRT_star(start, goal)
+tree, last_node = Quick_RRT_star(start, goal, search_radius)
 if last_node:
     path = reconstruct_path(tree, start, last_node)
     path = ReConstruct(path)
