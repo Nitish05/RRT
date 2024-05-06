@@ -161,7 +161,7 @@ def Quick_RRT_star(start, goal, iterations=3000, search_radius=20):
     available_nodes = nodes.copy()
     for u in range(iterations):
         # print("inside RRT_star")
-        print(u)
+        # print(u)
 
         # rand_point = random.choice(nodes) if random.randint(0, 100) > 5 else goal
         if random.randint(0, 100) > 5:
@@ -212,6 +212,8 @@ if last_node:
     path = reconstruct_path(tree, start, last_node)
     path = ReConstruct(path)
     draw_path(path)
+    path_cost = cost(tree, last_node)
+    print("Path cost: ", path_cost)
 
 end_time = time.time()
 print("Time taken: ", end_time - start_time)
