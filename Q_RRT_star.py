@@ -215,6 +215,9 @@ def draw_path(path, color=(255, 0, 0)):
 start = (50, 400)  # Input start as a tuple (X, Y)
 goal = (450, 100)  # Input goal as a tuple (X, Y)
 
+cv2.circle(canvas, start, 5, (0, 0, 255), -1)
+cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
+
 start_time = time.time()
 tree, last_node = Quick_RRT_star(start, goal, search_radius)
 if last_node:

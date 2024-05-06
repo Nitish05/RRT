@@ -171,6 +171,9 @@ def draw_path(path):
 start = (50, 400)  
 goal = (450, 100)  
 
+cv2.circle(canvas, start, 5, (0, 0, 255), -1)
+cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
+
 start_time = time.time()
 tree, last_node = RRT_star(start, goal)
 if last_node:
