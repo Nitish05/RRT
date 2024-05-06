@@ -164,7 +164,7 @@ def sample_points_in_ellipse(start, goal, num_points, C):
 
 
 
-def Informed_RRT_star(start, goal, iterations=3000, search_radius=20):
+def Informed_RRT_star(start, goal, iterations=5000, search_radius=20):
     GOAL_REACHED = False
     tree = {start: None}
     goal_node = None

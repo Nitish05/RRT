@@ -17,6 +17,9 @@ path_color = (0, 255, 0)
 clearance_distance = 5
 robo_radius = 22
 nodes = []
+AD = 1
+IT = 1000
+
 
 
 
@@ -128,9 +131,9 @@ def get_parent_nodes(tree, node, depth):
         depth -= 1
     return parents[::-1] 
 
-def q_rewire(tree, new_node, near_nodes_with_ancestry):
+def q_rewire(tree, new_node, near_nodes_with_ancestry, ad):
     for node in near_nodes_with_ancestry:
-        for  x_from in [new_node] + get_parent_nodes(tree, new_node, 4):
+        for  x_from in [new_node] + get_parent_nodes(tree, new_node, ad):
             sigma = extend(tree, x_from, node)
             if sigma and is_free(*sigma) and is_free_path(x_from, node) and cost(tree, x_from) + distance(x_from, sigma) < cost(tree, node) :
                 tree[node] = x_from
@@ -164,12 +167,14 @@ def sample_points_in_ellipse(start, goal, num_points, C):
 
 
 
-def Informed_RRT_star(start, goal, iterations=3000, search_radius=20):
+def I_Q_RRT_star(start, goal, iterations=2000, search_radius=20, ad=1):
     GOAL_REACHED = False
     tree = {start: None}
     goal_node = None
     available_nodes = nodes.copy()
     for _ in range(iterations):
+        # print(iterations, ad)
+
         if GOAL_REACHED:
             x_final, y_final = sample_points_in_ellipse(start, goal_node, num_points=1000, C= cost_n)
             valid_points = [(x, y) for x, y in zip(x_final, y_final) if is_free(x, y)]
@@ -191,13 +196,16 @@ def Informed_RRT_star(start, goal, iterations=3000, search_radius=20):
         new_node = extend(tree, nearest, rand_point)
         if new_node:
             near_nodes = nearest_nodes(tree, new_node, search_radius)
-            tree = choose_parent(tree, new_node, near_nodes)
-            tree = q_rewire(tree, new_node, near_nodes)
+            for n in near_nodes:
+                ancestor_nodes = get_parent_nodes(tree, n, ad)
+                near_nodes_with_ancestry = near_nodes + ancestor_nodes
+            tree = choose_parent(tree, new_node, near_nodes_with_ancestry)
+            tree = q_rewire(tree, new_node, near_nodes_with_ancestry, ad)
             if distance(new_node, goal) < 10:
                 GOAL_REACHED = True
                 if goal_node is None or cost(tree, new_node) < cost(tree, goal_node):
                     goal_node = new_node
-                tree = q_rewire(tree, goal_node, near_nodes)
+                tree = q_rewire(tree, goal_node, near_nodes, ad)
                 cost_n = cost(tree, new_node)
     return tree, goal_node
 
@@ -215,23 +223,59 @@ def draw_path(path):
     for i in range(len(path) - 1):
         cv2.line(canvas, path[i], path[i + 1], (255, 0, 0), 2)  
 
-start = (50, 400)  # Input start as a tuple (X, Y)
-goal = (450, 100)  # Input goal as a tuple (X, Y)
+# start = (50, 400)  # Input start as a tuple (X, Y)
+# goal = (450, 100)  # Input goal as a tuple (X, Y)
 
-cv2.circle(canvas, start, 5, (0, 0, 255), -1)
-cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
+# cv2.circle(canvas, start, 5, (0, 0, 255), -1)
+# cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
 
-start_time = time.time()
-tree, last_node = Informed_RRT_star(start, goal)
-if last_node:
-    path = reconstruct_path(tree, start, last_node)
-    # print(path)
-    draw_path(path)
-    path_cost = cost(tree, last_node)
-    print("Path Cost: ", path_cost)
-end_time = time.time()
-print("Time taken: ", end_time - start_time)
+# start_time = time.time()
+# tree, last_node = Informed_RRT_star(start, goal)
+# if last_node:
+#     path = reconstruct_path(tree, start, last_node)
+#     # print(path)
+#     draw_path(path)
+#     path_cost = cost(tree, last_node)
+#     print("Path Cost: ", path_cost)
+# end_time = time.time()
+# print("Time taken: ", end_time - start_time)
 
-cv2.imshow("Path Planning with Informed RRT* + Q RRT*", canvas)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# cv2.imshow("Path Planning with Informed RRT* + Q RRT*", canvas)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
+
+Iter = [1000, 2000, 3000, 4000, 5000, 10000]
+DP = [1, 2, 3, 4, 5]
+
+for IT in Iter:
+    for AD in DP:
+        canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
+        for x in range(canvas_width):
+            for y in range(canvas_height):
+                if is_free(x, y):
+                    nodes.append((x, y))
+                else:
+                    canvas[y, x] = obstacle_color 
+        
+        # canvascopy = canvas.copy()
+        start = (50, 400)  # Input start as a tuple (X, Y)
+        goal = (450, 100)  # Input goal as a tuple (X, Y)
+        cv2.circle(canvas, start, 5, (0, 0, 255), -1)
+        cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
+        path_cost = 0
+
+        start_time = time.time()
+        tree, last_node = I_Q_RRT_star(start, goal, IT, 20, AD)
+        if last_node:
+            path = reconstruct_path(tree, start, last_node)
+            # path = ReConstruct(path)
+            draw_path(path)
+            path_cost = cost(tree, last_node)
+            print(f"{IT} {AD} Path cost: ", path_cost)
+
+        end_time = time.time()
+        time_taken = end_time - start_time
+        print(f"{IT} {AD} Time taken: ", end_time - start_time)
+
+        # cv2.imshow("Path Planning with Quick-RRT*", canvas)
+        cv2.imwrite(f"I Q RRT {IT} {AD} path cost {path_cost} Time taken {time_taken}.png", canvas)

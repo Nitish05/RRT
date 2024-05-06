@@ -17,7 +17,8 @@ path_color = (0, 255, 0)
 clearance_distance = 5
 robo_radius = 22
 nodes = []
-Ancestory_Depth = 4
+AD = 1
+IT = 1000
 
 
 # Initialize a white canvas
@@ -44,12 +45,7 @@ def is_free(x, y):
 
     return not obstacles((x, y))
 
-for x in range(canvas_width):
-    for y in range(canvas_height):
-        if is_free(x, y):
-            nodes.append((x, y))
-        else:
-            canvas[y, x] = obstacle_color
+
             # obst.add((x, y))
 
 
@@ -70,22 +66,22 @@ def cost(tree, node):
     return total_cost
 
 
-def ReConstruct(path):
-    if not path:
-        return path
-    simplified_path = [path[0]] 
-    max_index = len(path) - 1
-    i = 0
+# def ReConstruct(path):
+#     if not path:
+#         return path
+#     simplified_path = [path[0]] 
+#     max_index = len(path) - 1
+#     i = 0
     
-    while i < max_index:
-        j = max_index
-        while j > i + 1:
-            if is_free_path(path[i], path[j]):
-                break
-            j -= 1
-        simplified_path.append(path[j])
-        i = j  
-    return simplified_path
+#     while i < max_index:
+#         j = max_index
+#         while j > i + 1:
+#             if is_free_path(path[i], path[j]):
+#                 break
+#             j -= 1
+#         simplified_path.append(path[j])
+#         i = j  
+#     return simplified_path
 
 def extend(tree, nearest, new_point, step_size=15):
     direction = np.array(new_point) - np.array(nearest)
@@ -146,20 +142,21 @@ def choose_parent(tree, new_node, near_nodes):
         cv2.line(canvas, best_parent, new_node, path_color, 1)
     return tree
 
-def q_rewire(tree, new_node, near_nodes_with_ancestry):
+def q_rewire(tree, new_node, near_nodes_with_ancestry, ad):
     for node in near_nodes_with_ancestry:
-        for  x_from in [new_node] + get_parent_nodes(tree, new_node, 4):
+        for  x_from in [new_node] + get_parent_nodes(tree, new_node, ad):
             sigma = extend(tree, x_from, node)
             if sigma and is_free(*sigma) and is_free_path(x_from, node) and cost(tree, x_from) + distance(x_from, sigma) < cost(tree, node) :
                 tree[node] = x_from
                 cv2.line(canvas, x_from, node, path_color, 1)
     return tree
 
-def Quick_RRT_star(start, goal, iterations=3000, search_radius=20):
+def Quick_RRT_star(start, goal, iterations=2000, search_radius=20, ad=1):
     tree = {start: None}
     goal_node = None
     available_nodes = nodes.copy()
     for u in range(iterations):
+        # print(iterations, ad)
         # print("inside RRT_star")
         # print(u)
 
@@ -175,16 +172,16 @@ def Quick_RRT_star(start, goal, iterations=3000, search_radius=20):
         if new_node:
             near_nodes = nearest_nodes(tree, new_node, search_radius)
             for n in near_nodes:
-                ancestry = get_parent_nodes(tree, n, 4)
+                ancestry = get_parent_nodes(tree, n, ad)
                 # print(f"Ancestry for {n}: {ancestry}")
                 near_nodes_with_ancestry = near_nodes + ancestry
                 # near_nodes.extend(ancestry)
-            tree = choose_parent(tree, new_node, near_nodes)
-            tree = q_rewire(tree, new_node, near_nodes_with_ancestry)
+            tree = choose_parent(tree, new_node, near_nodes_with_ancestry)
+            tree = q_rewire(tree, new_node, near_nodes_with_ancestry, ad)
             if distance(new_node, goal) < 10:
                 if goal_node is None or cost(tree, new_node) < cost(tree, goal_node):
                     goal_node = new_node
-                tree = q_rewire(tree, goal_node, near_nodes)
+                tree = q_rewire(tree, goal_node, near_nodes, ad)
     return tree, goal_node
 
 def reconstruct_path(tree, start, goal_node):
@@ -199,25 +196,49 @@ def reconstruct_path(tree, start, goal_node):
 
 def draw_path(path, color=(255, 0, 0)):
     for i in range(len(path) - 1):
-        cv2.line(canvas, path[i], path[i + 1], color, 2)  
+        cv2.line(canvas, path[i], path[i + 1], color, 2) 
 
-start = (50, 400)  # Input start as a tuple (X, Y)
-goal = (450, 100)  # Input goal as a tuple (X, Y)
-cv2.circle(canvas, start, 5, (0, 0, 255), -1)
-cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
+for x in range(canvas_width):
+            for y in range(canvas_height):
+                if is_free(x, y):
+                    nodes.append((x, y))
+                else:
+                    canvas[y, x] = obstacle_color 
 
-start_time = time.time()
-tree, last_node = Quick_RRT_star(start, goal)
-if last_node:
-    path = reconstruct_path(tree, start, last_node)
-    path = ReConstruct(path)
-    draw_path(path)
-    path_cost = cost(tree, last_node)
-    print("Path cost: ", path_cost)
+Iter = [1000, 2000, 3000, 4000, 5000, 10000]
+DP = [1, 2, 3, 4, 5]
 
-end_time = time.time()
-print("Time taken: ", end_time - start_time)
+for IT in Iter:
+    for AD in DP:
+        canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
+        for x in range(canvas_width):
+            for y in range(canvas_height):
+                if is_free(x, y):
+                    nodes.append((x, y))
+                else:
+                    canvas[y, x] = obstacle_color 
+        
+        # canvascopy = canvas.copy()
+        start = (50, 400)  # Input start as a tuple (X, Y)
+        goal = (450, 100)  # Input goal as a tuple (X, Y)
+        cv2.circle(canvas, start, 5, (0, 0, 255), -1)
+        cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
+        path_cost = 0
 
-cv2.imshow("Path Planning with Quick-RRT*", canvas)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+        start_time = time.time()
+        tree, last_node = Quick_RRT_star(start, goal, IT, 20, AD)
+        if last_node:
+            path = reconstruct_path(tree, start, last_node)
+            # path = ReConstruct(path)
+            draw_path(path)
+            path_cost = cost(tree, last_node)
+            print(f"{IT} {AD} Path cost: ", path_cost)
+
+        end_time = time.time()
+        time_taken = end_time - start_time
+        print(f"{IT} {AD} Time taken: ", end_time - start_time)
+
+        # cv2.imshow("Path Planning with Quick-RRT*", canvas)
+        cv2.imwrite(f"Q RRT {IT} {AD} path cost {path_cost} Time taken {time_taken}.png", canvas)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()

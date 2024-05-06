@@ -130,7 +130,7 @@ def is_free_path(fr, to):
 
 
 
-def RRT_star(start, goal, iterations=3000, search_radius=20):
+def RRT_star(start, goal, iterations=10000, search_radius=20):
     tree = {start: None}
     goal_node = None
     available_nodes = nodes.copy()
