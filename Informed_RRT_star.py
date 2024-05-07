@@ -4,6 +4,7 @@ from queue import PriorityQueue
 import time
 import random
 import math
+import matplotlib.pyplot as plt
 
 # Canvas dimensions
 canvas_height = 500
@@ -169,6 +170,9 @@ def Informed_RRT_star(start, goal, iterations=5000, search_radius=20):
     tree = {start: None}
     goal_node = None
     available_nodes = nodes.copy()
+    time_costs =[]
+    count = 0
+
     for _ in range(iterations):
         if GOAL_REACHED:
             x_final, y_final = sample_points_in_ellipse(start, goal_node, num_points=1000, C= cost_n)
@@ -193,13 +197,26 @@ def Informed_RRT_star(start, goal, iterations=5000, search_radius=20):
             near_nodes = nearest_nodes(tree, new_node, search_radius)
             tree = choose_parent(tree, new_node, near_nodes)
             tree = rewire(tree, new_node, near_nodes)
+            
             if distance(new_node, goal) < 10:
                 GOAL_REACHED = True
+                if count == 0:
+                    tg = time.time()
+                    time_to_goal = tg - start_time
+                    current_cost = cost(tree, new_node)
+                    print(f"Time to goal: {time_to_goal}, Cost to goal: {current_cost}")
+
+                    count += 1
                 if goal_node is None or cost(tree, new_node) < cost(tree, goal_node):
                     goal_node = new_node
                 tree = rewire_goal(tree, goal_node, near_nodes)
                 cost_n = cost(tree, new_node)
-    return tree, goal_node
+        # if count != 0:
+        #         cost_to_goal = cost(tree, goal_node)
+        current_time = time.time() - start_time
+        current_cost = cost(tree, goal_node) if goal_node else float('inf')
+        time_costs.append((current_time, current_cost))
+    return tree, goal_node, time_costs
 
 def reconstruct_path(tree, start, goal_node):
     path = []
@@ -222,7 +239,7 @@ cv2.circle(canvas, start, 5, (0, 0, 255), -1)
 cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
 
 start_time = time.time()
-tree, last_node = Informed_RRT_star(start, goal)
+tree, last_node, time_costs = Informed_RRT_star(start, goal)
 if last_node:
     path = reconstruct_path(tree, start, last_node)
     # print(path)
@@ -231,6 +248,15 @@ if last_node:
     print("Path Cost: ", path_cost)
 end_time = time.time()
 print("Time taken: ", end_time - start_time)
+
+times, costs = zip(*time_costs)
+plt.figure(figsize=(10, 5))
+plt.plot(times, costs, marker='o')
+plt.xlabel('Time (s)')
+plt.ylabel('Cost to Goal')
+plt.title('Cost to Goal over Time')
+plt.grid(True)
+plt.show()
 
 cv2.imshow("Path Planning with Informed RRT*", canvas)
 cv2.waitKey(0)

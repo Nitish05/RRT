@@ -3,6 +3,7 @@ import numpy as np
 from queue import PriorityQueue
 import time
 import random
+import matplotlib.pyplot as plt
 
 # Canvas dimensions
 canvas_height = 500
@@ -134,6 +135,9 @@ def RRT_star(start, goal, iterations=10000, search_radius=20):
     tree = {start: None}
     goal_node = None
     available_nodes = nodes.copy()
+    time_costs =[]
+    count = 0
+
     for _ in range(iterations):
         # rand_point = random.choice(nodes) if random.randint(0, 100) > 5 else goal
         if random.randint(0, 100) > 5:
@@ -149,10 +153,20 @@ def RRT_star(start, goal, iterations=10000, search_radius=20):
             tree = choose_parent(tree, new_node, near_nodes)
             tree = rewire(tree, new_node, near_nodes)
             if distance(new_node, goal) < 10:
+                if count == 0:
+                    tg = time.time()
+                    time_to_goal = tg - start_time
+                    current_cost = cost(tree, new_node)
+                    print(f"Time to goal: {time_to_goal}, Cost to goal: {current_cost}")
+
+                    count += 1
                 if goal_node is None or cost(tree, new_node) < cost(tree, goal_node):
                     goal_node = new_node
                 tree = rewire_goal(tree, goal_node, near_nodes)
-    return tree, goal_node
+        current_time = time.time() - start_time
+        current_cost = cost(tree, goal_node) if goal_node else float('inf')
+        time_costs.append((current_time, current_cost))
+    return tree, goal_node, time_costs
 
 def reconstruct_path(tree, start, goal_node):
     path = []
@@ -175,7 +189,7 @@ cv2.circle(canvas, start, 5, (0, 0, 255), -1)
 cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
 
 start_time = time.time()
-tree, last_node = RRT_star(start, goal)
+tree, last_node, time_costs = RRT_star(start, goal)
 if last_node:
     path = reconstruct_path(tree, start, last_node)
     path_cost = cost(tree, last_node)
@@ -183,6 +197,15 @@ if last_node:
     draw_path(path)
 end_time = time.time()
 print("Time taken: ", end_time - start_time)
+
+times, costs = zip(*time_costs)
+plt.figure(figsize=(10, 5))
+plt.plot(times, costs, marker='o')
+plt.xlabel('Time (s)')
+plt.ylabel('Cost to Goal')
+plt.title('Cost to Goal over Time')
+plt.grid(True)
+plt.show()
 
 cv2.imshow("Path Planning with RRT*", canvas)
 cv2.waitKey(0)

@@ -3,7 +3,7 @@ import numpy as np
 from queue import PriorityQueue
 import time
 import random
-
+import matplotlib.pyplot as plt
 # Canvas dimensions
 canvas_height = 500
 canvas_width = 500
@@ -18,7 +18,7 @@ clearance_distance = 5
 robo_radius = 22
 nodes = []
 AD = 1
-IT = 1000
+IT = 5000
 
 
 # Initialize a white canvas
@@ -83,7 +83,7 @@ def cost(tree, node):
 #         i = j  
 #     return simplified_path
 
-def extend(tree, nearest, new_point, step_size=15):
+def extend(tree, nearest, new_point, step_size=10):
     direction = np.array(new_point) - np.array(nearest)
     length = np.linalg.norm(direction)
     if length < 1:
@@ -155,6 +155,9 @@ def Quick_RRT_star(start, goal, iterations=2000, search_radius=20, ad=1):
     tree = {start: None}
     goal_node = None
     available_nodes = nodes.copy()
+    time_costs =[]
+    count = 0
+
     for u in range(iterations):
         # print(iterations, ad)
         # print("inside RRT_star")
@@ -178,11 +181,23 @@ def Quick_RRT_star(start, goal, iterations=2000, search_radius=20, ad=1):
                 # near_nodes.extend(ancestry)
             tree = choose_parent(tree, new_node, near_nodes_with_ancestry)
             tree = q_rewire(tree, new_node, near_nodes_with_ancestry, ad)
+            
+
             if distance(new_node, goal) < 10:
+                if count == 0:
+                    tg = time.time()
+                    time_to_goal = tg - start_time
+                    current_cost = cost(tree, new_node)
+                    print(f"Time to goal: {time_to_goal}, Cost to goal: {current_cost}")
+
+                    count += 1
                 if goal_node is None or cost(tree, new_node) < cost(tree, goal_node):
                     goal_node = new_node
-                tree = q_rewire(tree, goal_node, near_nodes, ad)
-    return tree, goal_node
+                tree = q_rewire(tree, goal_node, near_nodes_with_ancestry, ad)
+        current_time = time.time() - start_time
+        current_cost = cost(tree, goal_node) if goal_node else float('inf')
+        time_costs.append((current_time, current_cost))
+    return tree, goal_node, time_costs
 
 def reconstruct_path(tree, start, goal_node):
     path = []
@@ -205,40 +220,102 @@ for x in range(canvas_width):
                 else:
                     canvas[y, x] = obstacle_color 
 
-Iter = [1000, 2000, 3000, 4000, 5000, 10000]
+
+times = []
+costs = []
+depths = []
+
+
 DP = [1, 2, 3, 4, 5]
 
-for IT in Iter:
-    for AD in DP:
-        canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
-        for x in range(canvas_width):
-            for y in range(canvas_height):
-                if is_free(x, y):
-                    nodes.append((x, y))
-                else:
-                    canvas[y, x] = obstacle_color 
-        
-        # canvascopy = canvas.copy()
-        start = (50, 400)  # Input start as a tuple (X, Y)
-        goal = (450, 100)  # Input goal as a tuple (X, Y)
-        cv2.circle(canvas, start, 5, (0, 0, 255), -1)
-        cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
-        path_cost = 0
+time_costs_by_depth = {ad: [] for ad in DP}
 
-        start_time = time.time()
-        tree, last_node = Quick_RRT_star(start, goal, IT, 20, AD)
-        if last_node:
-            path = reconstruct_path(tree, start, last_node)
-            # path = ReConstruct(path)
-            draw_path(path)
-            path_cost = cost(tree, last_node)
-            print(f"{IT} {AD} Path cost: ", path_cost)
 
-        end_time = time.time()
-        time_taken = end_time - start_time
-        print(f"{IT} {AD} Time taken: ", end_time - start_time)
+# for AD in DP:
+#     canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
+#     for x in range(canvas_width):
+#         for y in range(canvas_height):
+#             if is_free(x, y):
+#                 nodes.append((x, y))
+#             else:
+#                 canvas[y, x] = obstacle_color 
+    
+#     # canvascopy = canvas.copy()
+#     start = (50, 400)  # Input start as a tuple (X, Y)
+#     goal = (450, 100)  # Input goal as a tuple (X, Y)
+#     cv2.circle(canvas, start, 5, (0, 0, 255), -1)
+#     cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
+#     path_cost = 0
 
-        # cv2.imshow("Path Planning with Quick-RRT*", canvas)
-        cv2.imwrite(f"Q RRT {IT} {AD} path cost {path_cost} Time taken {time_taken}.png", canvas)
+#     start_time = time.time()
+#     tree, last_node, time_costs = Quick_RRT_star(start, goal, IT, 20, AD)
+#     end_time = time.time()
+#     if last_node:
+#         path = reconstruct_path(tree, start, last_node)
+#         # path = ReConstruct(path)
+#         draw_path(path)
+#         path_cost = cost(tree, last_node)
+#         print(f"{IT} {AD} Path cost: ", path_cost)
+#     else:
+#         path_cost = float('inf')
+#     times, costs = zip(*time_costs)
+#     plt.figure(figsize=(10, 5))
+#     plt.plot(times, costs, marker='o')
+#     plt.xlabel('Time (s)')
+#     plt.ylabel('Cost to Goal')
+#     plt.title('Cost to Goal over Time')
+#     plt.grid(True)
+#     plt.show()
+
+    
+#     time_taken = end_time - start_time
+#     print(f"{IT} {AD} Time taken: ", end_time - start_time)
+
+    # cv2.imshow("Path Planning with Quick-RRT*", canvas)
+    # cv2.imwrite(f"Q RRT {IT} {AD} path cost {path_cost} Time taken {time_taken}.png", canvas)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
+for AD in DP:
+    canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
+    nodes = []
+    for x in range(canvas_width):
+        for y in range(canvas_height):
+            if is_free(x, y):
+                nodes.append((x, y))
+            else:
+                canvas[y, x] = obstacle_color 
+
+    start = (50, 400)  # Start point
+    goal = (450, 100)  # Goal point
+    cv2.circle(canvas, start, 5, (0, 0, 255), -1)
+    cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
+
+    start_time = time.time()
+    tree, last_node, time_costs = Quick_RRT_star(start, goal, IT, 20, AD)
+    end_time = time.time()
+
+    if last_node:
+        path = reconstruct_path(tree, start, last_node)
+        draw_path(path)
+        path_cost = cost(tree, last_node)
+    else:
+        path_cost = float('inf')
+
+    time_costs_by_depth[AD] = time_costs
+
+    print(f"{IT} {AD} Path cost: {path_cost}")
+    print(f"{IT} {AD} Time taken: {end_time - start_time}")
+
+# Data plotting
+plt.figure(figsize=(10, 5))
+for AD in DP:
+    times, costs = zip(*time_costs_by_depth[AD])
+    plt.plot(times, costs, marker='o', markersize=1, label=f'Q-depth={AD}')
+    # plt.plot(times, costs, marker='^', markersize=8, linestyle='--', linewidth=1, label=f'Q-Depth={AD}')
+
+plt.xlabel('Time (s)')
+plt.ylabel('Cost to Goal')
+plt.title('Cost to Goal over Time for Various Depths')
+plt.legend()
+plt.grid(True)
+plt.show()
