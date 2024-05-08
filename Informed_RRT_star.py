@@ -165,7 +165,7 @@ def sample_points_in_ellipse(start, goal, num_points, C):
 
 
 
-def Informed_RRT_star(start, goal, iterations=5000, search_radius=20):
+def Informed_RRT_star(start, goal, iterations=5000, search_radius=20, step_size=10):
     GOAL_REACHED = False
     tree = {start: None}
     goal_node = None
@@ -173,7 +173,9 @@ def Informed_RRT_star(start, goal, iterations=5000, search_radius=20):
     time_costs =[]
     count = 0
 
-    for _ in range(iterations):
+    for u in range(iterations):
+        if iterations % 10 == 0:
+            out.write(canvas)
         if GOAL_REACHED:
             x_final, y_final = sample_points_in_ellipse(start, goal_node, num_points=1000, C= cost_n)
             valid_points = [(x, y) for x, y in zip(x_final, y_final) if is_free(x, y)]
@@ -192,7 +194,7 @@ def Informed_RRT_star(start, goal, iterations=5000, search_radius=20):
         else:
             rand_point = goal
         nearest = min(tree, key=lambda x: distance(x, rand_point))
-        new_node = extend(tree, nearest, rand_point)
+        new_node = extend(tree, nearest, rand_point, step_size)
         if new_node:
             near_nodes = nearest_nodes(tree, new_node, search_radius)
             tree = choose_parent(tree, new_node, near_nodes)
@@ -231,15 +233,41 @@ def reconstruct_path(tree, start, goal_node):
 def draw_path(path):
     for i in range(len(path) - 1):
         cv2.line(canvas, path[i], path[i + 1], (255, 0, 0), 2)  
+        out.write(canvas)
 
-start = (50, 400)  # Input start as a tuple (X, Y)
-goal = (450, 100)  # Input goal as a tuple (X, Y)
+def inputs():
+    print("Informed RRT*")
+    Xin = int(input("Enter the x-coordinate of the initial point: "))
+    Yin = int(input("Enter the y-coordinate of the initial point: "))
+    Xf = int(input("Enter the x-coordinate of the goal point: "))
+    Yf = int(input("Enter the y-coordinate of the goal point: "))
+    IT = int(input("Enter the number of iterations: "))
+    ST = int(input("Enter the step size: "))
+    SR = int(input("Enter the search radius: "))
+    return Xin, Yin, Xf, Yf, IT, ST, SR
+
+Xin, Yin, Xf, Yf, IT, ST, SR = inputs()
+
+valid = False
+
+while not valid:
+    if not is_free(Xin, abs(Yin - canvas_height)) or not is_free(Xf, abs(Yf - canvas_height)) or not (0 <= Xin < canvas_width) or not (0 <= Xf < canvas_width) or not (0 <= Yin < canvas_height) or not (0 <= Yf < canvas_height):
+        print("Invalid start or goal point. Try again.")
+        Xin, Yin, Xf, Yf, IT, ST, SR = inputs()
+    else:
+        valid = True
+
+
+start = (Xin, abs(Yin - canvas_height))
+goal = (Xf, abs(Yf - canvas_height))
+
+out = cv2.VideoWriter('Informed_RRT_star.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 15, (canvas_width, canvas_height))
 
 cv2.circle(canvas, start, 5, (0, 0, 255), -1)
 cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
 
 start_time = time.time()
-tree, last_node, time_costs = Informed_RRT_star(start, goal)
+tree, last_node, time_costs = Informed_RRT_star(start, goal, IT, SR, ST)
 if last_node:
     path = reconstruct_path(tree, start, last_node)
     # print(path)

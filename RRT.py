@@ -86,6 +86,7 @@ def RRT(start, goal, iterations=5000):
     tree = {start: None}
     available_nodes = nodes.copy()
     for _ in range(iterations):
+        out.write(canvas)
         if random.randint(0, 100) > 5:
             if available_nodes:
                 rand_point = random.randint(0, len(available_nodes) - 1)
@@ -122,10 +123,33 @@ def calculate_path_cost(path):
 def draw_path(path, color=(255, 0, 0)):
     for i in range(len(path) - 1):
         cv2.line(canvas, path[i], path[i + 1], color, 2)  
+        out.write(canvas)
 
 
-start = (50, 400)
-goal = (450, 100)
+def inputs():
+    print("RRT")
+    Xin = int(input("Enter the x-coordinate of the initial point: "))
+    Yin = int(input("Enter the y-coordinate of the initial point: "))
+    Xf = int(input("Enter the x-coordinate of the goal point: "))
+    Yf = int(input("Enter the y-coordinate of the goal point: "))
+    return Xin, Yin, Xf, Yf
+
+Xin, Yin, Xf, Yf = inputs()
+
+valid = False
+
+while not valid:
+    if is_free(Xin, abs(Yin - canvas_height)) and is_free(Xf, abs(Yf - canvas_height)) and 0 <= Xin < canvas_width and 0 <= Xf < canvas_width and 0 <= Yin < canvas_height and 0 <= Yf < canvas_height:
+        valid = True
+    else:
+        print("Invalid start or goal point. Please try again.")
+        Xin, Yin, Xf, Yf = inputs()
+
+
+start = (Xin, abs(Yin - canvas_height))
+goal = (Xf, abs(Yf - canvas_height))
+
+out = cv2.VideoWriter('RRT.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 30, (canvas_width, canvas_height))
 
 
 start_time = time.time()

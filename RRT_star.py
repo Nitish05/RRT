@@ -131,15 +131,17 @@ def is_free_path(fr, to):
 
 
 
-def RRT_star(start, goal, iterations=10000, search_radius=20):
+def RRT_star(start, goal, iterations=3000, search_radius=20, step_size=10):
     tree = {start: None}
     goal_node = None
     available_nodes = nodes.copy()
     time_costs =[]
     count = 0
 
-    for _ in range(iterations):
+    for u in range(iterations):
         # rand_point = random.choice(nodes) if random.randint(0, 100) > 5 else goal
+        if iterations % 10 == 0:
+            out.write(canvas)
         if random.randint(0, 100) > 5:
                 rand_point = (random.randint(0, canvas_width), random.randint(0, canvas_height))
 
@@ -147,7 +149,7 @@ def RRT_star(start, goal, iterations=10000, search_radius=20):
         else:
             rand_point = goal
         nearest = min(tree, key=lambda x: distance(x, rand_point))
-        new_node = extend(tree, nearest, rand_point)
+        new_node = extend(tree, nearest, rand_point, step_size)
         if new_node:
             near_nodes = nearest_nodes(tree, new_node, search_radius)
             tree = choose_parent(tree, new_node, near_nodes)
@@ -181,15 +183,40 @@ def reconstruct_path(tree, start, goal_node):
 def draw_path(path):
     for i in range(len(path) - 1):
         cv2.line(canvas, path[i], path[i + 1], (255, 0, 0), 2)  
+        out.write(canvas)
+def inputs():
+    print("RRT* Path Planning")
+    Xi = input("Enter the x-coordinate of the start point: ")
+    Yi = input("Enter the y-coordinate of the start point: ")
+    Xf = input("Enter the x-coordinate of the goal point: ")
+    Yf = input("Enter the y-coordinate of the goal point: ")
+    IT = input("Enter the number of iterations: ")
+    ST = input("Enter the step size: ")
+    SR = input("Enter the search radius: ")
+    return int(Xi), int(Yi), int(Xf), int(Yf), int(IT), int(ST), int(SR)
 
-start = (50, 400)  
-goal = (450, 100)  
+Xi, Yi, Xf, Yf, IT, ST, SR = inputs()
+
+valid = False
+
+while not valid:
+    if not is_free(Xi, abs(Yi - canvas_height)) or not is_free(Xf, abs(Yf - canvas_height)) or not (0 <= Xi < canvas_width) or not (0 <= Xf < canvas_width) or not (0 <= Yi < canvas_height) or not (0 <= Yf < canvas_height):
+        print("Invalid start or goal point. Try again.")
+        Xi, Yi, Xf, Yf, IT, ST, SR = inputs()
+    else:
+        valid = True
+
+start = (Xi, abs(Yi - canvas_height))  
+goal = (Xf, abs(Yf - canvas_height))  
+
+
+out = cv2.VideoWriter('RRT_star.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 30, (canvas_width, canvas_height))
 
 cv2.circle(canvas, start, 5, (0, 0, 255), -1)
 cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
 
 start_time = time.time()
-tree, last_node, time_costs = RRT_star(start, goal)
+tree, last_node, time_costs = RRT_star(start, goal, IT, SR, ST)
 if last_node:
     path = reconstruct_path(tree, start, last_node)
     path_cost = cost(tree, last_node)
@@ -209,4 +236,5 @@ plt.show()
 
 cv2.imshow("Path Planning with RRT*", canvas)
 cv2.waitKey(0)
+out.release()
 cv2.destroyAllWindows()

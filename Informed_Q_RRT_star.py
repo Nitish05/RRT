@@ -18,8 +18,8 @@ path_color = (0, 255, 0)
 clearance_distance = 5
 robo_radius = 22
 nodes = []
-AD = 1
-IT = 2000
+# AD = 1
+# IT = 2000
 
 
 
@@ -168,7 +168,8 @@ def sample_points_in_ellipse(start, goal, num_points, C):
 
 
 
-def I_Q_RRT_star(start, goal, iterations=2000, search_radius=20, ad=1):
+def I_Q_RRT_star(start, goal, iterations=2000, search_radius=20, ad=1, step_size=10):
+
     GOAL_REACHED = False
     tree = {start: None}
     goal_node = None
@@ -176,9 +177,10 @@ def I_Q_RRT_star(start, goal, iterations=2000, search_radius=20, ad=1):
     time_costs =[]
     count = 0
 
-    for _ in range(iterations):
+    for u in range(iterations):
         # print(iterations, ad)
-
+        if iterations % 10 == 0:
+            out.write(canvas)
         if GOAL_REACHED:
             x_final, y_final = sample_points_in_ellipse(start, goal_node, num_points=1000, C= cost_n)
             valid_points = [(x, y) for x, y in zip(x_final, y_final) if is_free(x, y)]
@@ -197,7 +199,7 @@ def I_Q_RRT_star(start, goal, iterations=2000, search_radius=20, ad=1):
         else:
             rand_point = goal
         nearest = min(tree, key=lambda x: distance(x, rand_point))
-        new_node = extend(tree, nearest, rand_point)
+        new_node = extend(tree, nearest, rand_point, step_size)
         if new_node:
             near_nodes = nearest_nodes(tree, new_node, search_radius)
             for n in near_nodes:
@@ -236,86 +238,84 @@ def draw_path(path):
     for i in range(len(path) - 1):
         cv2.line(canvas, path[i], path[i + 1], (255, 0, 0), 2)  
 
-# start = (50, 400)  # Input start as a tuple (X, Y)
-# goal = (450, 100)  # Input goal as a tuple (X, Y)
-
-# cv2.circle(canvas, start, 5, (0, 0, 255), -1)
-# cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
-
-# start_time = time.time()
-# tree, last_node = Informed_RRT_star(start, goal)
-# if last_node:
-#     path = reconstruct_path(tree, start, last_node)
-#     # print(path)
-#     draw_path(path)
-#     path_cost = cost(tree, last_node)
-#     print("Path Cost: ", path_cost)
-# end_time = time.time()
-# print("Time taken: ", end_time - start_time)
-
-# cv2.imshow("Path Planning with Informed RRT* + Q RRT*", canvas)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-
-# Iter = [1000, 2000, 3000, 4000, 5000, 10000]
 times = []
 costs = []
 depths = []
 
-DP = [1, 2, 3, 4, 5]
+def inputs():
+    print(("Informed + Quick RRT*"))
+    Xin = int(input("Enter the x-coordinate of the initial point: "))
+    Yin = int(input("Enter the y-coordinate of the initial point: "))
+    Xf = int(input("Enter the x-coordinate of the goal point: "))
+    Yf = int(input("Enter the y-coordinate of the goal point: "))
+    AD = int(input("Enter the depth: "))
+    IT = int(input("Enter the number of iterations: "))
+    ST = int(input("Enter the step size: "))
+    SR = int(input("Enter the search radius: "))
+    return Xin, Yin, Xf, Yf, AD, IT, ST, SR
 
-time_costs_by_depth = {ad: [] for ad in DP}
+Xin, Yin, Xf, Yf, AD, IT, ST, SR = inputs()
 
+valid = False
 
-for AD in DP:
-    canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
-    nodes = []
-    for x in range(canvas_width):
-        for y in range(canvas_height):
-            if is_free(x, y):
-                nodes.append((x, y))
-            else:
-                canvas[y, x] = obstacle_color 
-    
-    # canvascopy = canvas.copy()
-    start = (50, 400)  # Input start as a tuple (X, Y)
-    goal = (450, 100)  # Input goal as a tuple (X, Y)
-    cv2.circle(canvas, start, 5, (0, 0, 255), -1)
-    cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
-    path_cost = 0
-
-    start_time = time.time()
-    tree, last_node, time_costs = I_Q_RRT_star(start, goal, IT, 20, AD)
-    end_time = time.time()
-    if last_node:
-        path = reconstruct_path(tree, start, last_node)
-        # path = ReConstruct(path)
-        draw_path(path)
-        path_cost = cost(tree, last_node)
-        # print(f"{IT} {AD} Path cost: ", path_cost)
+while not valid:
+    if is_free(Xin, abs(Yin - canvas_height)) and is_free(Xf, abs(Yf - canvas_height)) and 0 <= Xin < canvas_width and 0 <= Xf < canvas_width and 0 <= Yin < canvas_height and 0 <= Yf < canvas_height:
+        valid = True
     else:
-        path_cost = float('inf')
+        print("Invalid start or goal point. Please try again.")
+        Xin, Yin, Xf, Yf, AD, IT, ST, SR = inputs()
 
-    
-    time_taken = end_time - start_time
-    time_costs_by_depth[AD] = time_costs
+canvas = np.ones((canvas_height, canvas_width, 3), dtype="uint8") * 255
+nodes = []
+for x in range(canvas_width):
+    for y in range(canvas_height):
+        if is_free(x, y):
+            nodes.append((x, y))
+        else:
+            canvas[y, x] = obstacle_color 
 
-    print(f"{IT} {AD} Path cost: {path_cost}")
-    print(f"{IT} {AD} Time taken: {end_time - start_time}")
+# canvascopy = canvas.copy()
+# start = (50, 400)  # Input start as a tuple (X, Y)
+# goal = (450, 100)  # Input goal as a tuple (X, Y)
+out = cv2.VideoWriter('I_Q_RRT_star.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 30, (canvas_width, canvas_height))
 
-    cv2.imshow("Path Planning with Quick-RRT*", canvas)
-    cv2.waitKey(0)
-    # cv2.imwrite(f"I Q RRT {IT} {AD} path cost {path_cost} Time taken {time_taken}.png", canvas)
+start = (Xin, abs(Yin - canvas_height))
+goal = (Xf, abs(Yf - canvas_height))
+
+cv2.circle(canvas, start, 5, (0, 0, 255), -1)
+cv2.circle(canvas, goal, 5, (0, 255, 0), -1)
+out.write(canvas)
+path_cost = 0
+
+start_time = time.time()
+tree, last_node, time_costs = I_Q_RRT_star(start, goal, IT, SR, AD, ST)
+end_time = time.time()
+if last_node:
+    path = reconstruct_path(tree, start, last_node)
+    # path = ReConstruct(path)
+    draw_path(path)
+    path_cost = cost(tree, last_node)
+    # print(f"{IT} {AD} Path cost: ", path_cost)
+else:
+    path_cost = float('inf')
+
+
+time_taken = end_time - start_time
+# time_costs_by_depth[AD] = time_costs
+
+print(f"{IT} {AD} Path cost: {path_cost}")
+print(f"{IT} {AD} Time taken: {end_time - start_time}")
+
+times, costs = zip(*time_costs)
 plt.figure(figsize=(10, 5))
-for AD in DP:
-    times, costs = zip(*time_costs_by_depth[AD])
-    plt.plot(times, costs, marker='o', markersize=1, label=f'Q-depth={AD}')
-    # plt.plot(times, costs, marker='^', markersize=8, linestyle='--', linewidth=1, label=f'Q-Depth={AD}')
-
+plt.plot(times, costs, marker='o')
 plt.xlabel('Time (s)')
 plt.ylabel('Cost to Goal')
-plt.title('Cost to Goal over Time for Various Depths')
-plt.legend()
+plt.title('Cost to Goal over Time')
 plt.grid(True)
 plt.show()
+
+cv2.imshow("Path Planning with Informed Quick-RRT*", canvas)
+cv2.waitKey(0)
+out.release()
 
