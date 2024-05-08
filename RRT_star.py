@@ -227,7 +227,7 @@ print("Time taken: ", end_time - start_time)
 
 times, costs = zip(*time_costs)
 plt.figure(figsize=(10, 5))
-plt.plot(times, costs, marker='o')
+plt.plot(times, costs, marker='o', markersize=1, label="RRT*")
 plt.xlabel('Time (s)')
 plt.ylabel('Cost to Goal')
 plt.title('Cost to Goal over Time')
